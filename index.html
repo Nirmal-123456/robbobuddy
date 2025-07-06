@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoboBuddy - Robotics Learning Site</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    header, section {
+      padding: 20px;
+    }
+    section {
+      border-top: 1px solid #333;
+    }
+    h2 {
+      color: #00bcd4;
+    }
+    textarea, input, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+    }
+    textarea {
+      resize: vertical;
+    }
+    button {
+      background: #00bcd4;
+      color: black;
+      cursor: pointer;
+    }
+    pre {
+      background: #1f1f1f;
+      padding: 10px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    #chatbox {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 320px;
+      max-height: 500px;
+      background: #1f1f1f;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      z-index: 999;
+    }
+    #chatlog {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    #chatinput {
+      display: flex;
+    }
+    #chatinput input {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      background: #2b2b2b;
+      color: white;
+    }
+    #chatinput button {
+      background: #00bcd4;
+      color: black;
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    .quiz-option {
+      display: block;
+      background: #2b2b2b;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="is-preload">
+  <div id="wrapper">
+    <div id="main">
+      <div class="inner">
+        <header id="header">
+          <a href="index.html" class="logo"><strong>RoboBuddy</strong> by HTML5 UP</a>
+        </header>
+
+        <section id="banner">
+          <div class="content">
+            <header>
+              <h1>Welcome to RoboBuddy</h1>
+              <p>Learn robotics, code microcontrollers, and chat with Chatji!</p>
+            </header>
+          </div>
+        </section>
+
+        <section>
+          <h2>🧠 Robotics Quiz</h2>
+          <div id="quiz-container">
+            <p id="question">Loading question...</p>
+            <div id="options"></div>
+            <button onclick="nextQuestion()">Next</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>⚡ Arduino Code Generator</h2>
+          <textarea id="genPrompt" rows="3" placeholder="e.g. Blink LED every 2 seconds"></textarea>
+          <button onclick="generateCode()">Generate Code</button>
+          <pre id="genResult"></pre>
+        </section>
+      </div>
+    </div>
+
+    <div id="sidebar">
+      <div class="inner">
+        <nav id="menu">
+          <header class="major">
+            <h2>Menu</h2>
+          </header>
+          <ul>
+            <li><a href="#">Homepage</a></li>
+            <li><a href="#quiz-container">Quiz</a></li>
+            <li><a href="#genPrompt">Code Generator</a></li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatbox">
+    <div id="chatlog"></div>
+    <div id="chatinput">
+      <input type="text" id="userinput" placeholder="Ask Chatji anything...">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const input = document.getElementById('userinput');
+      const log = document.getElementById('chatlog');
+      const message = input.value.trim();
+      if (!message) return;
+      log.innerHTML += `<div><b>You:</b> ${message}</div>`;
+      input.value = '...';
+      const reply = await askChatji(message);
+      log.innerHTML += `<div><b>Chatji:</b> ${reply}</div>`;
+      input.value = '';
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function askChatji(message) {
+      const res = await fetch("http://localhost:11434/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "llama3",
+          prompt: message,
+          stream: false
+        })
+      });
+      const data = await res.json();
+      return data.response || "(No reply)";
+    }
+
+    const quizData = [
+      { q: "What does a resistor do?", o: ["Increases voltage", "Limits current", "Stores charge", "Amplifies signal"], a: 1 },
+      { q: "Which microcontroller has WiFi?", o: ["Arduino Uno", "ESP32", "ATmega328", "L293D"], a: 1 },
+    ];
+
+    let qIndex = 0;
+
+    function loadQuestion() {
+      const q = quizData[qIndex];
+      document.getElementById('question').innerText = q.q;
+      const options = document.getElementById('options');
+      options.innerHTML = '';
+      q.o.forEach((opt, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'quiz-option';
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(i);
+        options.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected) {
+      const correct = quizData[qIndex].a;
+      alert(selected === correct ? "✅ Correct!" : "❌ Incorrect.");
+    }
+
+    function nextQuestion() {
+      qIndex = (qIndex + 1) % quizData.length;
+      loadQuestion();
+    }
+
+    loadQuestion();
+
+    async function generateCode() {
+      const prompt = document.getElementById('genPrompt').value;
+      const res = await fetch("http://localhost:11434/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "llama3",
+          prompt: `Generate Arduino code for: ${prompt}`,
+          stream: false
+        })
+      });
+      const data = await res.json();
+      document.getElementById('genResult').innerText = data.response;
+    }
+  </script>
+  <script src="assets/js/jquery.min.js"></script>
+  <script src="assets/js/browser.min.js"></script>
+  <script src="assets/js/breakpoints.min.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
